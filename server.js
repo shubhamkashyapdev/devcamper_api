@@ -1,8 +1,11 @@
+const path = require("path");
 const express = require("express");
 const dotenv = require("dotenv");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const colors = require("colors");
+const fileupload = require("express-fileupload");
+const cookieParser = require("cookie-parser");
 
 // Imports //
 const connectDB = require("./config/db");
@@ -22,13 +25,24 @@ app.use(express.json({ extended: false }));
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+// file uploading //
+app.use(fileupload());
+// cookie parser //
+app.use(cookieParser());
+// set static folder //
+app.use(express.static(path.join(__dirname, "public")));
+
 // Routes //
 app.use("/api/v1/users", require("./routes/users"));
+app.use(errorHandler);
 app.use("/api/v1/auth", require("./routes/auth"));
+app.use(errorHandler);
 app.use("/api/v1/reviews", require("./routes/reviews"));
+app.use(errorHandler);
 app.use("/api/v1/bootcamps", require("./routes/bootcamps"));
 app.use(errorHandler);
 app.use("/api/v1/courses", require("./routes/courses"));
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
@@ -44,3 +58,5 @@ process.on("unhandledRejection", (err, promise) => {
   // Close server & exit process //
   server.close(() => process.exit(1));
 });
+
+// 8.
