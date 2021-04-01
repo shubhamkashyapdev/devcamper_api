@@ -1,8 +1,11 @@
+const crypto = require("crypto");
+
 // imports //
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const asyncHandler = require("../middleware/async");
 const ErrorResponse = require("../utils/errorResponse");
+const sendEmail = require("../utils/sendEmail");
 
 // @desc        Register user
 // @route       POST   /api/v1/auth/register
@@ -66,10 +69,59 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   const resetToken = await user.getResetPasswordToken();
   await user.save({ validateBeforeSave: false });
 
-  res.status(200).json({
-    success: true,
-    data: user,
+  const resetUrl = `${req.protocol}://${req.get(
+    "host"
+  )}/api/v1/auth/resetpassword/${resetToken}`;
+  const message = `You are reciving this email because your (or somone else) has requested the reset of a password. Plese click to:\n\n ${resetUrl}`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Password reset token",
+      message,
+    });
+    return res.status(200).json({
+      success: true,
+      data: `Email sent`,
+    });
+  } catch (err) {
+    console.log(err);
+    user.resetPasswordtoken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(new ErrorResponse(`Email could not be sent`, 500));
+  }
+});
+
+// @desc        Reset Password
+// @route       PUT   /api/v1/auth/resetpassword/:resetToken
+// @access      Public
+exports.resetPassword = asyncHandler(async (req, res, next) => {
+  if (!req.body.password) {
+    return next(new ErrorResponse(`Please add a password to change`, 400));
+  }
+  // get the hashed token with crypto //
+  const resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(req.params.resetToken)
+    .digest("hex");
+
+  const user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: {
+      $gt: Date.now(),
+    },
   });
+  if (!user) {
+    return next(new ErrorResponse(`Invalid Token`, 400));
+  }
+  // set new password //
+  user.password = req.body.password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  await user.save();
+
+  sendTokenResponse(user, 200, res);
 });
 
 // Get token from model, create cookie and send response token //
