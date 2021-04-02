@@ -57,6 +57,42 @@ exports.getMe = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc        Update user details
+// @route       PUT   /api/v1/auth/updatedetails
+// @access      Private
+exports.updateDetails = asyncHandler(async (req, res, next) => {
+  const filedsToUpdate = {
+    name: req.body.name,
+    email: req.body.email,
+  };
+  const user = await User.findByIdAndUpdate(req.user.id, filedsToUpdate, {
+    new: true,
+    runValidators: true,
+  });
+  res.status(200).json({
+    success: true,
+    data: user,
+  });
+});
+
+// @desc        Update Password
+// @route       PUT   /api/v1/auth/updatepassword
+// @access      Private
+exports.updatePassword = asyncHandler(async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+  const user = await User.findById(req.user.id).select("+password");
+  // check current password //
+  if (!(await user.matchPassword(currentPassword))) {
+    return next(new ErrorResponse(`Password Is Incorrect`, 400));
+  }
+  if (currentPassword === newPassword) {
+    return next(new ErrorResponse(`Both Password Are Same`, 400));
+  }
+  user.password = newPassword;
+  await user.save();
+  sendTokenResponse(user, 200, res);
+});
+
 // @desc        Frogot Password
 // @route       POST   /api/v1/auth/forgotpassword
 // @access      Public
