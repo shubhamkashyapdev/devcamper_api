@@ -1,17 +1,21 @@
 const express = require("express");
+const {
+  getUsers,
+  addUser,
+  updateUser,
+  removeUser,
+} = require("../controllers/users");
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
-router.get("/", (req, res) => {
-  res.status(201).json({
-    success: true,
-    status: res.statusCode,
-    greet: req.greeting,
-    data: {
-      name: "Brad",
-      age: 45,
-    },
-  });
-});
+// middleware //
+const { protect, authorize } = require("../middleware/auth");
+const advancedResults = require("../middleware/advancedResults");
+const User = require("../models/User");
+
+router.use(protect);
+router.use(authorize("admin"));
+router.route("/").get(advancedResults(User), getUsers).post(addUser);
+router.route("/:id").put(updateUser).delete(removeUser);
 
 module.exports = router;

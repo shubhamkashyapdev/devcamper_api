@@ -2,7 +2,6 @@ const crypto = require("crypto");
 
 // imports //
 const User = require("../models/User");
-const bcrypt = require("bcryptjs");
 const asyncHandler = require("../middleware/async");
 const ErrorResponse = require("../utils/errorResponse");
 const sendEmail = require("../utils/sendEmail");
@@ -12,6 +11,12 @@ const sendEmail = require("../utils/sendEmail");
 // @access      Public
 exports.register = asyncHandler(async (req, res, next) => {
   const { name, email, role, password } = req.body;
+  const checkUser = await User.findOne({ email });
+  if (checkUser) {
+    return next(
+      new ErrorResponse(`User already exists, please login intead`, 400)
+    );
+  }
   // create user //
   const user = await User.create({
     name,
@@ -54,6 +59,23 @@ exports.getMe = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     success: true,
     data: user,
+  });
+});
+
+// @desc        Logout user
+// @route       GET   /api/v1/auth/logout
+// @access      Private
+exports.logout = asyncHandler(async (req, res, next) => {
+  res.cookie("token", "none", {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+  });
+
+  // remove token from localstorage @todo //
+
+  res.status(200).json({
+    success: true,
+    data: {},
   });
 });
 

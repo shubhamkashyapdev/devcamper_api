@@ -1,11 +1,16 @@
 const path = require("path");
 const express = require("express");
 const dotenv = require("dotenv");
-const helmet = require("helmet");
 const morgan = require("morgan");
 const colors = require("colors");
 const fileupload = require("express-fileupload");
 const cookieParser = require("cookie-parser");
+const sanitize = require("express-mongo-sanitize");
+const helmet = require("helmet");
+const xss = require("xss-clean");
+const rateLimit = require("express-rate-limit");
+const hpp = require("hpp");
+const cors = require("cors");
 
 // Imports //
 const connectDB = require("./config/db");
@@ -17,14 +22,29 @@ dotenv.config({ path: "./config/config.env" });
 const app = express();
 connectDB();
 
-app.use(helmet());
-app.use(express.json({ extended: false }));
-
 // Middleware //
+app.use(helmet());
+// rate limiting //
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 100,
+});
+app.use(limiter);
+// prevent http param polution //
+app.use(hpp());
+// cross domain access //
+app.use(cors());
+// sanitize data //
+app.use(sanitize());
+// prevent cross site scripting attack //
+app.use(xss());
+
 // Dev logging middleware
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+// accept json data //
+app.use(express.json({ extended: false }));
 // file uploading //
 app.use(fileupload());
 // cookie parser //
@@ -58,5 +78,3 @@ process.on("unhandledRejection", (err, promise) => {
   // Close server & exit process //
   server.close(() => process.exit(1));
 });
-
-// 8.
